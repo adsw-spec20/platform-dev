@@ -113,6 +113,7 @@ async function main() {
   console.log(`inserted ${catIdMap.size} categories`);
 
   let itemCount = 0;
+  const itemIdMap = new Map<string, string>(); // HB id -> platform id
   for (const it of items) {
     const categoryId = catIdMap.get(it.category_id);
     if (!categoryId) {
@@ -135,6 +136,7 @@ async function main() {
       })
       .select("id").single();
     if (error) throw error;
+    itemIdMap.set(it.id, row.id);
     itemCount++;
 
     for (const [gi, g] of (it.option_groups ?? []).entries()) {
@@ -177,6 +179,19 @@ async function main() {
     }
   }
   console.log(`inserted ${itemCount} items with full option groups`);
+
+  // Second pass: related items (upsell carousel data).
+  let relatedCount = 0;
+  for (const it of items) {
+    const ids = (it as unknown as { related_item_ids?: string[] }).related_item_ids ?? [];
+    const mapped = ids.map((x) => itemIdMap.get(x)).filter(Boolean) as string[];
+    if (mapped.length === 0) continue;
+    const newId = itemIdMap.get(it.id);
+    if (!newId) continue;
+    await admin.from("menu_items").update({ related_item_ids: mapped }).eq("id", newId);
+    relatedCount++;
+  }
+  console.log(`linked related items on ${relatedCount} items`);
   console.log("Home Burger demo import complete.");
 }
 

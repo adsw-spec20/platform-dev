@@ -5,7 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Bell, UtensilsCrossed, Palette, MapPin, Settings, Users, Plug, LogOut, Menu as MenuIcon, X,
+  Bell, UtensilsCrossed, Palette, MapPin, Settings, Users, Plug, LogOut, Menu as MenuIcon, X, Ticket, Gift,
 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { LoginForm } from "@/components/dashboard/LoginForm";
@@ -15,6 +15,8 @@ const NAV = [
   { href: "/dashboard/menu", label: "תפריט", Icon: UtensilsCrossed },
   { href: "/dashboard/branding", label: "מיתוג", Icon: Palette },
   { href: "/dashboard/zones", label: "אזורי משלוח", Icon: MapPin },
+  { href: "/dashboard/coupons", label: "קופונים", Icon: Ticket },
+  { href: "/dashboard/loyalty", label: "מועדון", Icon: Gift },
   { href: "/dashboard/settings", label: "הגדרות", Icon: Settings },
   { href: "/dashboard/staff", label: "צוות", Icon: Users },
   { href: "/dashboard/integrations", label: "חיבורים", Icon: Plug },

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle, ChefHat, Truck, Home, Package } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CheckCircle, ChefHat, Truck, Home, Package, RotateCcw } from "lucide-react";
 import { formatPrice } from "@/lib/format";
 import type { OrderStatus } from "@/lib/orders/state";
+import { useCart } from "./CartProvider";
 
 type TrackedOrder = {
   id: string;
@@ -39,6 +41,35 @@ const PICKUP_STEPS: { key: OrderStatus[]; label: string; Icon: typeof CheckCircl
 export function TrackView({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<TrackedOrder | null>(null);
   const [failed, setFailed] = useState(false);
+  const [reorderBusy, setReorderBusy] = useState(false);
+  const [reorderNote, setReorderNote] = useState<string | null>(null);
+  const { addLine, clear } = useCart();
+  const router = useRouter();
+
+  async function reorder() {
+    setReorderBusy(true);
+    setReorderNote(null);
+    try {
+      const res = await fetch(`/api/reorder/${orderId}`);
+      const data = await res.json();
+      if (!res.ok || !data.lines?.length) {
+        setReorderNote("לא ניתן לשחזר את ההזמנה — התפריט השתנה");
+        setReorderBusy(false);
+        return;
+      }
+      clear();
+      for (const l of data.lines) addLine(l.item, l.qty, l.selections, l.notes);
+      if (data.dropped?.length) {
+        setReorderNote(`חלק מהפריטים כבר לא בתפריט: ${data.dropped.join(", ")}`);
+        setTimeout(() => router.push("/checkout"), 1800);
+      } else {
+        router.push("/checkout");
+      }
+    } catch {
+      setReorderNote("שגיאת תקשורת, נסו שוב");
+      setReorderBusy(false);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -175,6 +206,22 @@ export function TrackView({ orderId }: { orderId: string }) {
           </div>
         </div>
       </div>
+
+      {/* One-click reorder */}
+      <button
+        onClick={reorder}
+        disabled={reorderBusy}
+        className="w-full py-3 rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+        style={{ border: "2px solid var(--brand-primary)", color: "var(--brand-primary)" }}
+      >
+        <RotateCcw className="w-4 h-4" />
+        {reorderBusy ? "מכין את העגלה..." : "הזמן שוב בקליק"}
+      </button>
+      {reorderNote && (
+        <p className="text-xs text-center" style={{ color: "var(--brand-text-secondary)" }}>
+          {reorderNote}
+        </p>
+      )}
     </div>
   );
 }

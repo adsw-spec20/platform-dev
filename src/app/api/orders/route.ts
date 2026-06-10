@@ -7,6 +7,7 @@ import { calcLinePrice, calcCartTotals, type Selections } from "@/lib/pricing";
 import { validateSelections } from "@/lib/orders/validate";
 import { isOpenNow } from "@/lib/hours";
 import { quoteDelivery } from "@/lib/server/delivery";
+import { normalizePhone, maxRedeemable } from "@/lib/loyalty";
 import { processDueDeliveries } from "@/lib/webhooks/dispatch";
 
 const LineSchema = z.object({
@@ -23,6 +24,8 @@ const OrderSchema = z.object({
   method: z.enum(["delivery", "pickup"]),
   customer_name: z.string().min(2).max(120),
   customer_phone: z.string().regex(/^0\d{8,9}$/),
+  coupon_code: z.string().max(40).optional(),
+  redeem_loyalty: z.boolean().optional(),
   address: z
     .object({
       street: z.string().min(1).max(200),
@@ -166,6 +169,59 @@ export async function POST(req: Request) {
     { delivery_fee: deliveryFee, min_order: settings.min_order },
     body.method
   );
+
+  // Coupon (server-validated)
+  let discount = 0;
+  let couponId: string | null = null;
+  if (body.coupon_code) {
+    const { data: coupon } = await client
+      .from("coupons")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("code", body.coupon_code.trim().toUpperCase())
+      .eq("is_active", true)
+      .maybeSingle();
+    const expired = coupon?.expires_at && new Date(coupon.expires_at) < new Date();
+    const exhausted = coupon?.max_uses != null && coupon.used_count >= coupon.max_uses;
+    if (!coupon || expired || exhausted || totals.subtotal < coupon.min_subtotal) {
+      return NextResponse.json(
+        { error: { code: "invalid_coupon", message: "קוד הקופון אינו תקף" } },
+        { status: 409 }
+      );
+    }
+    discount =
+      coupon.kind === "percent"
+        ? Math.round((totals.subtotal * coupon.value) / 100)
+        : Math.min(coupon.value, totals.subtotal);
+    couponId = coupon.id;
+  }
+
+  // Loyalty redemption (server-enforced, both modes)
+  let redeemed = 0;
+  let loyaltyAccountId: string | null = null;
+  const phone = normalizePhone(body.customer_phone);
+  if (settings.loyalty_enabled && body.redeem_loyalty && phone) {
+    const { data: account } = await client
+      .from("loyalty_accounts")
+      .select("id, balance")
+      .eq("tenant_id", tenantId)
+      .eq("phone", phone)
+      .maybeSingle();
+    if (account && account.balance > 0) {
+      const units = snapshotLines.map((l) => ({
+        unitPrice: Math.round(l.line_price / l.qty),
+        qty: l.qty,
+      }));
+      redeemed = maxRedeemable(
+        settings.loyalty_redemption_mode,
+        account.balance,
+        units
+      );
+      redeemed = Math.min(redeemed, totals.subtotal - discount);
+      loyaltyAccountId = account.id;
+    }
+  }
+
   if (totals.subtotal < settings.min_order) {
     return NextResponse.json(
       {
@@ -200,14 +256,39 @@ export async function POST(req: Request) {
       customer_notes: body.customer_notes ?? null,
       items: snapshotLines,
       subtotal: totals.subtotal,
-      delivery_fee: totals.delivery_fee,
-      total: totals.total,
+      delivery_fee: deliveryFee,
+      discount,
+      loyalty_redeemed: redeemed,
+      coupon_code: couponId ? body.coupon_code!.trim().toUpperCase() : null,
+      total: totals.subtotal - discount - redeemed + (body.method === "delivery" ? deliveryFee : 0),
     })
     .select("id, number")
     .single();
 
   if (insertErr) {
     return NextResponse.json({ error: { code: "insert_failed" } }, { status: 500 });
+  }
+
+  // Post-insert side effects: coupon usage, loyalty ledger (accrual + redemption).
+  if (couponId) {
+    await client.rpc("increment_coupon_use", { p_coupon_id: couponId });
+  }
+  if (settings.loyalty_enabled && phone) {
+    const accrual = Math.round(
+      ((totals.subtotal - discount - redeemed) * settings.loyalty_accrual_percent) / 100
+    );
+    await client.rpc("apply_loyalty", {
+      p_tenant_id: tenantId,
+      p_phone: phone,
+      p_order_id: order!.id,
+      p_redeem: redeemed,
+      p_accrue: accrual,
+      p_account_id: loyaltyAccountId,
+    });
+    await client
+      .from("orders")
+      .update({ loyalty_accrued: accrual })
+      .eq("id", order!.id);
   }
 
   // The DB trigger enqueued order.created deliveries; dispatch them now.
