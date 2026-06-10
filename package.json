@@ -30,6 +30,7 @@
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "playwright": "^1.60.0",
     "server-only": "^0.0.1",
     "supabase": "^2.105.0",
     "tailwindcss": "^4",
