@@ -32,6 +32,23 @@ export async function getTenantContext(
   return { tenant, theme };
 }
 
+export type StoreStatus = {
+  operational_status: "auto" | "busy" | "closed";
+  opening_hours: Record<string, string>;
+  busy_extra_minutes: number;
+};
+
+export async function getTenantSettings(
+  tenantId: string
+): Promise<StoreStatus | null> {
+  const { data } = await db()
+    .from("tenant_settings")
+    .select("operational_status, opening_hours, busy_extra_minutes")
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  return (data as StoreStatus | null) ?? null;
+}
+
 /** Full menu tree for one tenant: categories -> items -> option groups -> options. */
 export async function getFullMenu(tenantId: string): Promise<MenuCategory[]> {
   const client = db();

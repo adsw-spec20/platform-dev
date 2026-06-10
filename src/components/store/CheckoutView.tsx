@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "./CartProvider";
 import { calcLinePrice, calcCartTotals } from "@/lib/pricing";
@@ -31,13 +31,50 @@ export function CheckoutView({ settings }: { settings: Settings }) {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [zoneQuote, setZoneQuote] = useState<{ fee: number; zone_name: string | null } | null>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+
+  // Live zone-based delivery quote once the address is complete (display only;
+  // the server recomputes authoritatively on order creation).
+  useEffect(() => {
+    if (method !== "delivery" || !street.trim() || !houseNumber.trim() || !city.trim()) {
+      setZoneQuote(null);
+      setQuoteError(null);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/delivery-quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            street: street.trim(),
+            house_number: houseNumber.trim(),
+            city: city.trim(),
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setZoneQuote(data.quote);
+          setQuoteError(null);
+        } else {
+          setZoneQuote(null);
+          setQuoteError(data?.error?.message ?? null);
+        }
+      } catch {
+        /* keep previous state on transient errors */
+      }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [method, street, houseNumber, city]);
 
   const totals = useMemo(() => {
     const linePrices = lines.map((l) => ({
       linePrice: calcLinePrice(l.item, l.selections, l.qty),
     }));
-    return calcCartTotals(linePrices, settings, method);
-  }, [lines, settings, method]);
+    const fee = zoneQuote?.fee ?? settings.delivery_fee;
+    return calcCartTotals(linePrices, { delivery_fee: fee, min_order: settings.min_order }, method);
+  }, [lines, settings, method, zoneQuote]);
 
   if (lines.length === 0 && !submitting) {
     return (
@@ -169,9 +206,14 @@ export function CheckoutView({ settings }: { settings: Settings }) {
       <div className="rounded-xl p-4 space-y-1.5" style={{ border: "1px solid var(--brand-border)" }}>
         <Row label="ביניים" value={formatPrice(totals.subtotal)} />
         <Row
-          label="דמי משלוח"
+          label={zoneQuote?.zone_name ? `דמי משלוח (${zoneQuote.zone_name})` : "דמי משלוח"}
           value={method === "delivery" ? formatPrice(totals.delivery_fee) : "—"}
         />
+        {method === "delivery" && quoteError && (
+          <p className="text-xs font-medium" style={{ color: "#DC2626" }}>
+            {quoteError}
+          </p>
+        )}
         <div className="pt-2 mt-1 flex justify-between font-bold text-lg"
           style={{ borderTop: "1px solid var(--brand-border)", color: "var(--text-color)" }}>
           <span>סה״כ לתשלום</span>

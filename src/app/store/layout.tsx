@@ -1,7 +1,8 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { Rubik } from "next/font/google";
-import { getTenantContext } from "@/lib/dal/tenant-data";
+import { getTenantContext, getTenantSettings } from "@/lib/dal/tenant-data";
+import { isOpenNow } from "@/lib/hours";
 import type { Theme } from "@/lib/types";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { CartProvider } from "@/components/store/CartProvider";
@@ -41,10 +42,30 @@ export default async function StoreLayout({
   const tenantId = h.get("x-tenant-id");
   if (!tenantId) notFound();
 
-  const ctx = await getTenantContext(tenantId);
+  const [ctx, settings] = await Promise.all([
+    getTenantContext(tenantId),
+    getTenantSettings(tenantId),
+  ]);
   if (!ctx) notFound();
 
   const { tenant, theme } = ctx;
+
+  let banner: { text: string; bg: string } | null = null;
+  if (settings) {
+    if (settings.operational_status === "closed") {
+      banner = { text: "🌙 המסעדה סגורה כרגע — לא ניתן לבצע הזמנות", bg: "#B91C1C" };
+    } else if (
+      settings.operational_status === "auto" &&
+      !isOpenNow(settings.opening_hours ?? {})
+    ) {
+      banner = { text: "🌙 אנחנו סגורים כעת — נשמח לראותכם בשעות הפעילות", bg: "#B91C1C" };
+    } else if (settings.operational_status === "busy") {
+      banner = {
+        text: `⏳ עומס הזמנות — זמן ההכנה התארך בכ-${settings.busy_extra_minutes} דקות`,
+        bg: "#C2410C",
+      };
+    }
+  }
 
   if (tenant.status === "suspended") {
     return (
@@ -75,6 +96,14 @@ export default async function StoreLayout({
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: themeCss(theme) }} />
+      {banner && (
+        <div
+          className="px-4 py-2.5 text-center text-sm font-medium text-white"
+          style={{ backgroundColor: banner.bg }}
+        >
+          {banner.text}
+        </div>
+      )}
       <CartProvider tenantSlug={tenant.slug}>
         <StoreHeader name={tenant.name} logoUrl={theme.logo_url} />
         <StoreMain>{children}</StoreMain>

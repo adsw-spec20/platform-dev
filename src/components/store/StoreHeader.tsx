@@ -2,6 +2,7 @@
 
 import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCart } from "./CartProvider";
 
 export function StoreHeader({
@@ -12,6 +13,8 @@ export function StoreHeader({
   logoUrl: string | null;
 }) {
   const { count, setDrawerOpen } = useCart();
+  const pathname = usePathname();
+  const isDashboard = pathname.startsWith("/dashboard");
 
   return (
     <header
@@ -35,6 +38,12 @@ export function StoreHeader({
           </span>
         )}
       </Link>
+      {isDashboard && (
+        <span className="text-sm font-medium" style={{ color: "var(--brand-text-secondary)" }}>
+          ניהול העסק
+        </span>
+      )}
+      {!isDashboard && (
       <button
         aria-label="עגלת קניות"
         onClick={() => setDrawerOpen(true)}
@@ -51,6 +60,7 @@ export function StoreHeader({
           </span>
         )}
       </button>
+      )}
     </header>
   );
 }

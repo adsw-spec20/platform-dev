@@ -5,6 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 import { getFullMenu } from "@/lib/dal/tenant-data";
 import { calcLinePrice, calcCartTotals, type Selections } from "@/lib/pricing";
 import { validateSelections } from "@/lib/orders/validate";
+import { isOpenNow } from "@/lib/hours";
+import { quoteDelivery } from "@/lib/server/delivery";
 
 const LineSchema = z.object({
   itemId: z.string().uuid(),
@@ -72,6 +74,22 @@ export async function POST(req: Request) {
   if (!settings) {
     return NextResponse.json({ error: { code: "no_settings" } }, { status: 409 });
   }
+  // Operational guard: explicit close, or outside opening hours in auto mode.
+  if (settings.operational_status === "closed") {
+    return NextResponse.json(
+      { error: { code: "closed", message: "המסעדה סגורה כרגע" } },
+      { status: 409 }
+    );
+  }
+  if (
+    settings.operational_status === "auto" &&
+    !isOpenNow(settings.opening_hours ?? {})
+  ) {
+    return NextResponse.json(
+      { error: { code: "closed", message: "המסעדה סגורה כעת — בדקו את שעות הפתיחה" } },
+      { status: 409 }
+    );
+  }
   if (body.method === "delivery" && !settings.delivery_enabled) {
     return NextResponse.json(
       { error: { code: "method_disabled", message: "משלוחים אינם זמינים כעת" } },
@@ -125,9 +143,26 @@ export async function POST(req: Request) {
     });
   }
 
+  // Delivery fee: polygon zone price when zones are defined, else flat fee.
+  let deliveryFee = settings.delivery_fee;
+  if (body.method === "delivery" && body.address) {
+    const quote = await quoteDelivery(tenantId, body.address, settings.delivery_fee);
+    if (!quote.ok) {
+      const message =
+        quote.reason === "outside_zones"
+          ? "הכתובת מחוץ לאזורי המשלוח שלנו"
+          : "לא הצלחנו לאתר את הכתובת — בדקו את הפרטים";
+      return NextResponse.json(
+        { error: { code: quote.reason, message } },
+        { status: 409 }
+      );
+    }
+    deliveryFee = quote.fee;
+  }
+
   const totals = calcCartTotals(
     snapshotLines.map((l) => ({ linePrice: l.line_price })),
-    settings,
+    { delivery_fee: deliveryFee, min_order: settings.min_order },
     body.method
   );
   if (totals.subtotal < settings.min_order) {
