@@ -45,7 +45,7 @@ export async function getFullMenu(tenantId: string): Promise<MenuCategory[]> {
     client
       .from("menu_items")
       .select(
-        "id, category_id, name, description, price, image_url, sort_order, is_available"
+        "id, category_id, name, description, price, image_url, sort_order, is_available, badge_label, badge_color"
       )
       .eq("tenant_id", tenantId)
       .order("sort_order"),

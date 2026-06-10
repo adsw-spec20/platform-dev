@@ -49,6 +49,8 @@ export type MenuItem = {
   image_url: string | null;
   sort_order: number;
   is_available: boolean;
+  badge_label: string | null;
+  badge_color: "primary" | "accent" | "success" | "warning" | "neutral" | null;
   option_groups: OptionGroup[];
 };
 

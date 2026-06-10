@@ -38,7 +38,7 @@ export function StoreHeader({
       <button
         aria-label="עגלת קניות"
         onClick={() => setDrawerOpen(true)}
-        className="relative w-10 h-10 rounded-full flex items-center justify-center transition-opacity hover:opacity-80"
+        className="relative w-10 h-10 rounded-full flex items-center justify-center transition-opacity hover:opacity-80 lg:hidden"
         style={{ border: "1px solid var(--brand-border)" }}
       >
         <ShoppingCart className="w-5 h-5" style={{ color: "var(--text-color)" }} />

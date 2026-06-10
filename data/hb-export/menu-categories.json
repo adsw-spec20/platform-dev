@@ -1,0 +1,12 @@
+{
+  "entities": [
+    { "id": "698b5eaf0a56404f1abe0e24", "name": "המבורגרים", "emoji": "🍔", "description": "המבורגרים עסיסיים מבשר בקר איכותי במיוחד", "sort_order": 1, "is_available": true },
+    { "id": "698b5eaf0a56404f1abe0e25", "name": "באגטים - אפייה במקום!", "emoji": "🥖", "description": "באגט טרי במילוי בשר לבחירתכם", "sort_order": 2, "is_available": true },
+    { "id": "698b5eaf0a56404f1abe0e26", "name": "טורטיות", "emoji": "🌯", "description": "טורטייה רכה עם בשר ותוספות לבחירה", "sort_order": 3, "is_available": true },
+    { "id": "698b5eaf0a56404f1abe0e27", "name": "ארוחות", "emoji": "🍽️", "description": "ארוחה שלמה כולל צ'יפס ושתיה", "sort_order": 4, "is_available": true },
+    { "id": "698b5eaf0a56404f1abe0e28", "name": "חמגשיות", "emoji": "🍱", "description": "בשר איכותי מוגש על חמגשית חמה", "sort_order": 5, "is_available": false },
+    { "id": "698b5eaf0a56404f1abe0e29", "name": "סלטים", "emoji": "🥗", "description": "סלטים טריים בהרכבה אישית", "sort_order": 6, "is_available": true },
+    { "id": "698b5eaf0a56404f1abe0e2a", "name": "תוספות", "emoji": "🍟", "description": "תוספות טעימות לצד המנה", "sort_order": 7, "is_available": true },
+    { "id": "698b5eaf0a56404f1abe0e2b", "name": "שתיה", "emoji": "🥤", "description": "משקאות קרים", "sort_order": 8, "is_available": true }
+  ]
+}

@@ -9,21 +9,51 @@ import { OrdersBoard } from "@/components/dashboard/OrdersBoard";
 export default function DashboardPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
 
   useEffect(() => {
-    const supabase = supabaseBrowser();
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    let supabase;
+    try {
+      supabase = supabaseBrowser();
+    } catch (e) {
+      setInitError(`שגיאת אתחול: ${(e as Error).message}`);
       setReady(true);
-    });
+      return;
+    }
+
+    // INITIAL_SESSION fires reliably on subscribe; getSession is belt-and-suspenders;
+    // the timeout guarantees we never hang on "loading" no matter what.
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
+      setReady(true);
     });
-    return () => sub.subscription.unsubscribe();
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setSession(data.session);
+        setReady(true);
+      })
+      .catch((e) => {
+        setInitError(`שגיאת התחברות: ${(e as Error).message}`);
+        setReady(true);
+      });
+    const failsafe = setTimeout(() => setReady(true), 4000);
+
+    return () => {
+      sub.subscription.unsubscribe();
+      clearTimeout(failsafe);
+    };
   }, []);
 
   if (!ready) {
     return <div className="p-12 text-center text-sm">טוען...</div>;
+  }
+  if (initError) {
+    return (
+      <div className="p-12 text-center text-sm" style={{ color: "#DC2626" }}>
+        {initError}
+      </div>
+    );
   }
   return session ? <OrdersBoard /> : <LoginForm />;
 }

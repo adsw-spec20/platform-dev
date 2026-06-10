@@ -213,6 +213,16 @@ function SearchResults({
   );
 }
 
+function badgeColor(c: MenuItem["badge_color"]): string {
+  switch (c) {
+    case "accent": return "var(--brand-accent)";
+    case "success": return "#16A34A";
+    case "warning": return "#F59E0B";
+    case "neutral": return "#6B7280";
+    default: return "var(--brand-primary)";
+  }
+}
+
 function ItemCard({ item }: { item: MenuItem }) {
   const unavailable = !item.is_available;
   const { openSheet, addLine } = useCart();
@@ -298,6 +308,14 @@ function ItemCard({ item }: { item: MenuItem }) {
           >
             {formatPrice(item.price)}
           </span>
+          {item.badge_label && (
+            <span
+              className="px-2 py-1 rounded-full text-xs font-medium text-white"
+              style={{ backgroundColor: badgeColor(item.badge_color) }}
+            >
+              {item.badge_label}
+            </span>
+          )}
         </div>
       </div>
     </div>
