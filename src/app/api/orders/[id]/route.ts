@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { processDueDeliveries } from "@/lib/webhooks/dispatch";
 
 /** Public order status for the tracking page (order uuid is the capability). */
 export async function GET(
@@ -34,5 +35,10 @@ export async function GET(
   if (!order) {
     return NextResponse.json({ error: { code: "not_found" } }, { status: 404 });
   }
+
+  // Tracking polls every 5s while orders are active - a natural heartbeat
+  // for dispatching status-change webhooks enqueued by the DB trigger.
+  await processDueDeliveries(3);
+
   return NextResponse.json({ order });
 }

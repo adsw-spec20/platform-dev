@@ -7,6 +7,7 @@ import { calcLinePrice, calcCartTotals, type Selections } from "@/lib/pricing";
 import { validateSelections } from "@/lib/orders/validate";
 import { isOpenNow } from "@/lib/hours";
 import { quoteDelivery } from "@/lib/server/delivery";
+import { processDueDeliveries } from "@/lib/webhooks/dispatch";
 
 const LineSchema = z.object({
   itemId: z.string().uuid(),
@@ -208,6 +209,9 @@ export async function POST(req: Request) {
   if (insertErr) {
     return NextResponse.json({ error: { code: "insert_failed" } }, { status: 500 });
   }
+
+  // The DB trigger enqueued order.created deliveries; dispatch them now.
+  await processDueDeliveries(5);
 
   return NextResponse.json({ order }, { status: 201 });
 }
