@@ -16,8 +16,14 @@ export async function middleware(req: NextRequest) {
     process.env.PLATFORM_ROOT_DOMAIN ?? "localtest.me"
   );
 
-  // Root domain = platform pages (marketing/wizard later). Pass through.
-  if (parsed.kind === "root") return NextResponse.next();
+  // Root domain = platform pages (marketing/wizard later). Pass through,
+  // but block direct access to internal /store routes.
+  if (parsed.kind === "root") {
+    if (req.nextUrl.pathname.startsWith("/store")) {
+      return new NextResponse("Not found", { status: 404 });
+    }
+    return NextResponse.next();
+  }
 
   if (parsed.kind === "invalid") {
     return new NextResponse("Not found", { status: 404 });
@@ -32,7 +38,16 @@ export async function middleware(req: NextRequest) {
   headers.set("x-tenant-id", tenant.id);
   headers.set("x-tenant-slug", tenant.slug);
   headers.set("x-tenant-status", tenant.status);
-  return NextResponse.next({ request: { headers } });
+
+  // API routes keep their paths (with tenant headers attached).
+  if (req.nextUrl.pathname.startsWith("/api")) {
+    return NextResponse.next({ request: { headers } });
+  }
+
+  // Tenant host: serve the storefront route tree.
+  const url = req.nextUrl.clone();
+  url.pathname = `/store${url.pathname === "/" ? "" : url.pathname}`;
+  return NextResponse.rewrite(url, { request: { headers } });
 }
 
 export const config = {
