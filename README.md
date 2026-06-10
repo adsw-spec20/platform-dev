@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Platform (working name)
 
-## Getting Started
+Multi-tenant restaurant-ordering SaaS. Spec + plans: `docs/` (spec maintained in the HBv1.0 repo until this repo becomes primary).
 
-First, run the development server:
+## Non-negotiable rules
+1. **Tenant isolation:** every table has `tenant_id` + RLS. `npm run test:isolation` must pass before every merge.
+2. **Money is integer agorot.** Never float. (5500 = ₪55.00)
+3. **Theming is data.** No hardcoded colors/brand in components — design tokens only.
+4. **Anon clients get nothing from PostgREST.** Storefront reads go through server-side code with explicit tenant scoping.
+5. The HBv1.0 repo (`c:\Users\Adir\HBv1.0`) is read-only reference. Never modify it.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Environment note (this machine)
+Avast antivirus intercepts TLS. Node tooling needs its root cert:
+`NODE_EXTRA_CA_CERTS=C:\Users\Adir\.certs\avast-root.pem` (set as user env var; new shells pick it up automatically).
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup
+1. `npm install`
+2. Copy `.env.local.example` → `.env.local`, fill from Supabase dashboard
+3. `npx supabase link --project-ref <ref> --password <db password>`
+4. `npx supabase db push --password <db password>`
+5. `npm run seed`
+6. `npm run dev` → http://demo-a.localtest.me:3000/api/debug/tenant
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Commands
+- `npm test` — all tests
+- `npm run test:isolation` — tenant isolation suite (the iron rule)
+- `npm run seed` — idempotent demo data (demo-a burgers, demo-b pizza + staff logins)
+- `npx supabase db push` — apply new migrations
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Structure
+- `supabase/migrations/` — schema (SQL, numbered)
+- `src/lib/tenant/` — host parsing + tenant resolution
+- `src/middleware.ts` — domain → tenant (`x-tenant-id` request headers)
+- `src/app/api/debug/tenant/` — dev-only resolution check
+- `tests/isolation/` — cross-tenant access tests
+- `scripts/seed-demo.ts` — demo data
+- `spikes/` — throwaway research code (never imported by app code). See `spikes/wolt-import/REPORT.md` — **Wolt import: FEASIBLE.**
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Milestone status
+- **M0 (foundations): COMPLETE** — schema+RLS live on Supabase dev, tenant resolution working, isolation suite green, Wolt spike positive.
+- Next: M1 — branded read-only storefront (Home Burger design parity).
