@@ -19,12 +19,17 @@ beforeAll(async () => {
 
 describe("tenant isolation (iron rule)", () => {
   it("staff A sees only tenant A menu items", async () => {
+    // Sample a real tenant-A item via admin, then assert staff A sees it.
+    const { data: sample } = await adminClient()
+      .from("menu_items").select("name")
+      .eq("tenant_id", tenantA).limit(1).single();
+
     const { data, error } = await ownerA.from("menu_items").select("name, tenant_id");
     expect(error).toBeNull();
     expect(data!.length).toBeGreaterThan(0);
     expect(data!.every((r) => r.tenant_id === tenantA)).toBe(true);
-    expect(data!.map((r) => r.name)).toContain("המבורגר קלאסי");
-    expect(data!.map((r) => r.name)).not.toContain("מרגריטה");
+    expect(data!.map((r) => r.name)).toContain(sample!.name);
+    expect(data!.map((r) => r.name)).not.toContain("מרגריטה"); // tenant B's pizza
   });
 
   it("staff A gets zero rows even when explicitly filtering for tenant B", async () => {
