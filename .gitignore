@@ -43,3 +43,6 @@ next-env.d.ts
 # spike raw dumps
 spikes/wolt-import/out/
 .vercel
+
+# local credentials
+.admin-credentials.txt
