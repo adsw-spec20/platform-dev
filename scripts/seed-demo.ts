@@ -243,6 +243,14 @@ async function main() {
       );
     if (error) throw error;
     await seedMenu(tenantId, t.menu);
+    await admin.from("tenant_settings").upsert(
+      { tenant_id: tenantId, delivery_fee: 1500, min_order: 5000 },
+      { onConflict: "tenant_id" }
+    );
+    await admin.from("order_counters").upsert(
+      { tenant_id: tenantId },
+      { onConflict: "tenant_id", ignoreDuplicates: true }
+    );
     console.log(`  done: tenant=${tenantId}`);
   }
   console.log("Seed complete.");

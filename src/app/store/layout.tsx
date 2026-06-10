@@ -4,6 +4,9 @@ import { Rubik } from "next/font/google";
 import { getTenantContext } from "@/lib/dal/tenant-data";
 import type { Theme } from "@/lib/types";
 import { StoreHeader } from "@/components/store/StoreHeader";
+import { CartProvider } from "@/components/store/CartProvider";
+import { CartDrawer } from "@/components/store/CartDrawer";
+import { ItemOptionsSheet } from "@/components/store/ItemOptionsSheet";
 
 const rubik = Rubik({
   subsets: ["hebrew", "latin"],
@@ -71,8 +74,12 @@ export default async function StoreLayout({
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: themeCss(theme) }} />
-      <StoreHeader name={tenant.name} logoUrl={theme.logo_url} />
-      <main className="flex-1">{children}</main>
+      <CartProvider tenantSlug={tenant.slug}>
+        <StoreHeader name={tenant.name} logoUrl={theme.logo_url} />
+        <main className="flex-1">{children}</main>
+        <CartDrawer />
+        <ItemOptionsSheet />
+      </CartProvider>
       <footer
         className="py-6 px-4 text-center text-sm"
         style={{

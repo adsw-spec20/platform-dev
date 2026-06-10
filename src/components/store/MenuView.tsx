@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Plus } from "lucide-react";
 import type { MenuCategory, MenuItem } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
+import { useCart } from "./CartProvider";
 
 /** Storefront menu: search, sticky category nav with scroll-spy, Wolt-style cards.
  *  Design source: docs/design/storefront-spec.md (Home Burger gold standard). */
@@ -214,8 +215,17 @@ function SearchResults({
 
 function ItemCard({ item }: { item: MenuItem }) {
   const unavailable = !item.is_available;
+  const { openSheet, addLine } = useCart();
+
+  function handleCardClick() {
+    if (unavailable) return;
+    if (item.option_groups.length > 0) openSheet(item);
+    else addLine(item, 1, {});
+  }
+
   return (
     <div
+      onClick={handleCardClick}
       className="group flex gap-4 p-4 cursor-pointer"
       style={{
         backgroundColor: "var(--brand-bg-card)",
@@ -256,6 +266,10 @@ function ItemCard({ item }: { item: MenuItem }) {
         {!unavailable && item.option_groups.length === 0 && (
           <button
             aria-label={`הוסף ${item.name}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              addLine(item, 1, {});
+            }}
             className="absolute -bottom-1 -left-1 md:-bottom-2 md:-left-2 w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-transform hover:scale-110"
             style={{ backgroundColor: "var(--brand-primary)" }}
           >
